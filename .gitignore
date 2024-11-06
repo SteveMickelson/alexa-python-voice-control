@@ -1,3 +1,7 @@
+# Alexa defined
+skill_env/
+
+# Python Standard File
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
