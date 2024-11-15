@@ -8,8 +8,7 @@ import logging
 import gettext
 
 from ask_sdk_core.skill_builder import SkillBuilder
-from ask_sdk_core.dispatch_components import (
-    AbstractRequestHandler, AbstractRequestInterceptor, AbstractExceptionHandler)
+from ask_sdk_core.dispatch_components import (AbstractRequestHandler, AbstractRequestInterceptor, AbstractExceptionHandler)
 import ask_sdk_core.utils as ask_utils
 from ask_sdk_core.handler_input import HandlerInput
 
@@ -19,7 +18,57 @@ from alexa import data
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+# Code added to handle my Python server interface
+# class CommandIntentHandler(AbstractRequestHandler):
+#     """Handler for Command Intent to send commands to an external Python application and get a response."""
 
+#     def can_handle(self, handler_input):
+#         return ask_utils.is_intent_name("CommandIntent")(handler_input)
+
+#     def handle(self, handler_input):
+#         # Get the command slot value from the user's input
+#         command = handler_input.request_envelope.request.intent.slots["command"].value
+
+#         # Forward the command to the external Python application and get the response
+#         response = forward_command_to_python_app(command)
+
+#         # Use the response from the external app as Alexa's spoken response
+#         if response.status_code == 200:
+#             # Assuming the external application sends a response text in JSON format
+#             # Adjust the field name as per your application's actual JSON response
+#             app_response_text = response.json().get("response_text", "Command completed successfully.")
+#             speak_output = app_response_text
+#         else:
+#             # In case of an error in communication with the external app
+#             speak_output = "There was an error forwarding your command to my master."
+
+
+#         return handler_input.response_builder.speak(speak_output).response
+class CommandIntentHandler(AbstractRequestHandler):
+    """Handler for Command Intent to simulate a response without server integration."""
+
+    def can_handle(self, handler_input):
+        return ask_utils.is_intent_name("CommandIntent")(handler_input)
+
+    def handle(self, handler_input):
+        # Get the command slot value from the user's input
+        command = handler_input.request_envelope.request.intent.slots["command"].value
+
+        # Canned response for testing purposes
+        canned_response_text = f"I received your command: '{command}'. This is a simulated response."
+
+        # Respond with the canned response
+        return handler_input.response_builder.speak(canned_response_text).response
+
+def forward_command_to_python_app(command):
+    # Replace this URL with the actual URL for your Python server
+    url = "https://your-python-app-endpoint.com/command"
+    headers = {'Content-Type': 'application/json'}
+    payload = {'command': command}
+    response = requests.post(url, headers=headers, json=payload)
+    return response
+
+# Original Amazon Code
 class LaunchRequestHandler(AbstractRequestHandler):
     """Handler for Skill Launch."""
 
@@ -202,6 +251,10 @@ sb.add_request_handler(HelpIntentHandler())
 sb.add_request_handler(CancelOrStopIntentHandler())
 sb.add_request_handler(FallbackIntentHandler())
 sb.add_request_handler(SessionEndedRequestHandler())
+
+# Register the new handlers vor voice to python server
+sb.add_request_handler(CommandIntentHandler())
+
 # make sure IntentReflectorHandler is last so it doesn't override your custom intent handlers
 sb.add_request_handler(IntentReflectorHandler())
 

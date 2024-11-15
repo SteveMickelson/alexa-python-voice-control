@@ -31,6 +31,23 @@
                 {
                     "name": "AMAZON.NavigateHomeIntent",
                     "samples": []
+                },
+                {
+                    "name": "CommandIntent",
+                    "slots": [
+                        {
+                            "name": "command",
+                            "type": "AMAZON.SearchQuery"
+                        }
+                    ],
+                    "samples": [
+                        "Ask python {command}",
+                        "tell python to {command}",
+                        "send {command} to python",
+                        "execute {command}",
+                        "run {command} on python",
+                        "perform {command}"
+                    ]
                 }
             ],
             "types": []
