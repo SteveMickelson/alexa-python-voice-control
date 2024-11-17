@@ -1,51 +1,30 @@
 # -*- coding: utf-8 -*-
 
-# This sample demonstrates handling intents from an Alexa skill using the Alexa Skills Kit SDK for Python.
-# Please visit https://alexa.design/cookbook for additional examples on implementing slots, dialog management,
-# session persistence, api calls, and more.
-# This sample is built using the handler classes approach in skill builder.
 import logging
 import gettext
-
+import requests  # To make HTTP requests
+from pyngrok import ngrok  # Import ngrok
 from ask_sdk_core.skill_builder import SkillBuilder
-from ask_sdk_core.dispatch_components import (AbstractRequestHandler, AbstractRequestInterceptor, AbstractExceptionHandler)
+from ask_sdk_core.dispatch_components import AbstractRequestHandler, AbstractRequestInterceptor, AbstractExceptionHandler
 import ask_sdk_core.utils as ask_utils
 from ask_sdk_core.handler_input import HandlerInput
-
 from ask_sdk_model import Response
 from alexa import data
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Code added to handle my Python server interface
-# class CommandIntentHandler(AbstractRequestHandler):
-#     """Handler for Command Intent to send commands to an external Python application and get a response."""
+# Set ngrok authtoken for authentication
+ngrok.set_auth_token("2orstFkoh7ZyLE6njr4pxdIv2DA_4spvTnfdEpXTCcJm7KpZn")  # Replace with your actual ngrok authtoken
 
-#     def can_handle(self, handler_input):
-#         return ask_utils.is_intent_name("CommandIntent")(handler_input)
+# Start ngrok tunnel on port 5000 (assuming Flask or FastAPI is running there)
+# You can change this port to match your local server port
+public_url = ngrok.connect(5000).public_url
+logger.info(f"Public ngrok URL: {public_url}")
 
-#     def handle(self, handler_input):
-#         # Get the command slot value from the user's input
-#         command = handler_input.request_envelope.request.intent.slots["command"].value
-
-#         # Forward the command to the external Python application and get the response
-#         response = forward_command_to_python_app(command)
-
-#         # Use the response from the external app as Alexa's spoken response
-#         if response.status_code == 200:
-#             # Assuming the external application sends a response text in JSON format
-#             # Adjust the field name as per your application's actual JSON response
-#             app_response_text = response.json().get("response_text", "Command completed successfully.")
-#             speak_output = app_response_text
-#         else:
-#             # In case of an error in communication with the external app
-#             speak_output = "There was an error forwarding your command to my master."
-
-
-#         return handler_input.response_builder.speak(speak_output).response
+# CommandIntentHandler that sends commands to the local server via the ngrok URL
 class CommandIntentHandler(AbstractRequestHandler):
-    """Handler for Command Intent to simulate a response without server integration."""
+    """Handler for Command Intent to send commands to an external Python application and get a response."""
 
     def can_handle(self, handler_input):
         return ask_utils.is_intent_name("CommandIntent")(handler_input)
@@ -53,213 +32,119 @@ class CommandIntentHandler(AbstractRequestHandler):
     def handle(self, handler_input):
         # Get the command slot value from the user's input
         command = handler_input.request_envelope.request.intent.slots["command"].value
+        logger.info(f"Received command: {command}")
 
-        # Canned response for testing purposes
-        canned_response_text = f"I received your command: '{command}'. This is a simulated response."
+        # Use the ngrok URL as the endpoint for the local server
+        url = f"{public_url}/command"
+        headers = {'Content-Type': 'application/json'}
+        payload = {'command': command}
 
-        # Respond with the canned response
-        return handler_input.response_builder.speak(canned_response_text).response
+        try:
+            # Send the POST request to the local server via ngrok
+            response = requests.post(url, headers=headers, json=payload)
 
-def forward_command_to_python_app(command):
-    # Replace this URL with the actual URL for your Python server
-    url = "https://your-python-app-endpoint.com/command"
-    headers = {'Content-Type': 'application/json'}
-    payload = {'command': command}
-    response = requests.post(url, headers=headers, json=payload)
-    return response
+            # Check the response from the server
+            if response.status_code == 200:
+                # Assuming the server response contains a JSON object with a "response_text" field
+                app_response_text = response.json().get("response_text", "Command completed successfully.")
+                speak_output = app_response_text
+            else:
+                speak_output = "There was an error processing your command on the server."
 
-# Original Amazon Code
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error connecting to server: {e}")
+            speak_output = "I'm sorry, I couldn't reach the server to process your command."
+
+        # Respond to Alexa with the server's response
+        return handler_input.response_builder.speak(speak_output).response
+
+
+# Original Amazon Handlers (e.g., LaunchRequestHandler, HelpIntentHandler, etc.)
 class LaunchRequestHandler(AbstractRequestHandler):
     """Handler for Skill Launch."""
-
     def can_handle(self, handler_input):
-        # type: (HandlerInput) -> bool
-
         return ask_utils.is_request_type("LaunchRequest")(handler_input)
 
     def handle(self, handler_input):
-        # type: (HandlerInput) -> Response
         _ = handler_input.attributes_manager.request_attributes["_"]
         speak_output = _(data.WELCOME_MESSAGE)
 
-        return (
-            handler_input.response_builder
-            .speak(speak_output)
-            .ask(speak_output)
-            .response
-        )
+        return handler_input.response_builder.speak(speak_output).ask(speak_output).response
 
 
 class HelloWorldIntentHandler(AbstractRequestHandler):
     """Handler for Hello World Intent."""
-
     def can_handle(self, handler_input):
-        # type: (HandlerInput) -> bool
         return ask_utils.is_intent_name("HelloWorldIntent")(handler_input)
 
     def handle(self, handler_input):
-        # type: (HandlerInput) -> Response
         _ = handler_input.attributes_manager.request_attributes["_"]
         speak_output = _(data.HELLO_MSG)
 
-        return (
-            handler_input.response_builder
-            .speak(speak_output)
-            # .ask("add a reprompt if you want to keep the session open for the user to respond")
-            .response
-        )
-
+        return handler_input.response_builder.speak(speak_output).response
 
 class HelpIntentHandler(AbstractRequestHandler):
     """Handler for Help Intent."""
-
     def can_handle(self, handler_input):
-        # type: (HandlerInput) -> bool
         return ask_utils.is_intent_name("AMAZON.HelpIntent")(handler_input)
 
     def handle(self, handler_input):
-        # type: (HandlerInput) -> Response
-        _ = handler_input.attributes_manager.request_attributes["_"]
-        speak_output = _(data.HELP_MSG)
-
-        return (
-            handler_input.response_builder
-            .speak(speak_output)
-            .ask(speak_output)
-            .response
-        )
-
+        speak_output = "You have reached Steve my master's HelpIntentHandler."
+        return handler_input.response_builder.speak(speak_output).ask(speak_output).response
 
 class CancelOrStopIntentHandler(AbstractRequestHandler):
-    """Single handler for Cancel and Stop Intent."""
-
+    """Handler for Cancel and Stop Intents."""
     def can_handle(self, handler_input):
-        # type: (HandlerInput) -> bool
         return (ask_utils.is_intent_name("AMAZON.CancelIntent")(handler_input) or
                 ask_utils.is_intent_name("AMAZON.StopIntent")(handler_input))
 
     def handle(self, handler_input):
-        # type: (HandlerInput) -> Response
-        _ = handler_input.attributes_manager.request_attributes["_"]
-        speak_output = _(data.GOODBYE_MSG)
-
-        return (
-            handler_input.response_builder
-            .speak(speak_output)
-            .response
-        )
+        speak_output = "Goodbye!"
+        return handler_input.response_builder.speak(speak_output).set_should_end_session(True).response
 
 class FallbackIntentHandler(AbstractRequestHandler):
-    """Single handler for Fallback Intent."""
+    """Handler for Fallback Intent."""
     def can_handle(self, handler_input):
-        # type: (HandlerInput) -> bool
         return ask_utils.is_intent_name("AMAZON.FallbackIntent")(handler_input)
 
     def handle(self, handler_input):
-        # type: (HandlerInput) -> Response
-        logger.info("In FallbackIntentHandler")
-        speech = "Hmm, I'm not sure. You can say Hello or Help. What would you like to do?"
-        reprompt = "I didn't catch that. What can I help you with?"
-
-        return handler_input.response_builder.speak(speech).ask(reprompt).response
+        speak_output = "I'm sorry, I don't know how to help with that. Please try again."
+        return handler_input.response_builder.speak(speak_output).ask(speak_output).response
 
 class SessionEndedRequestHandler(AbstractRequestHandler):
-    """Handler for Session End."""
-
+    """Handler for Session Ended Request."""
     def can_handle(self, handler_input):
-        # type: (HandlerInput) -> bool
         return ask_utils.is_request_type("SessionEndedRequest")(handler_input)
 
     def handle(self, handler_input):
-        # type: (HandlerInput) -> Response
-
         # Any cleanup logic goes here.
-
+        logger.info("Session ended.")
         return handler_input.response_builder.response
 
-
 class IntentReflectorHandler(AbstractRequestHandler):
-    """The intent reflector is used for interaction model testing and debugging.
-    It will simply repeat the intent the user said. You can create custom handlers
-    for your intents by defining them above, then also adding them to the request
-    handler chain below.
-    """
-
+    """Handler for reflecting the intent name back to the user. Useful for debugging."""
     def can_handle(self, handler_input):
-        # type: (HandlerInput) -> bool
         return ask_utils.is_request_type("IntentRequest")(handler_input)
 
     def handle(self, handler_input):
-        # type: (HandlerInput) -> Response
-        _ = handler_input.attributes_manager.request_attributes["_"]
         intent_name = ask_utils.get_intent_name(handler_input)
-        speak_output = _(data.REFLECTOR_MSG).format(intent_name)
-
-        return (
-            handler_input.response_builder
-            .speak(speak_output)
-            # .ask("add a reprompt if you want to keep the session open for the user to respond")
-            .response
-        )
+        speak_output = f"You just triggered {intent_name}."
+        return handler_input.response_builder.speak(speak_output).response
 
 
-class CatchAllExceptionHandler(AbstractExceptionHandler):
-    """Generic error handling to capture any syntax or routing errors. If you receive an error
-    stating the request handler chain is not found, you have not implemented a handler for
-    the intent being invoked or included it in the skill builder below.
-    """
+# (Continue defining other handlers as in your original code...)
 
-    def can_handle(self, handler_input, exception):
-        # type: (HandlerInput, Exception) -> bool
-        return True
-
-    def handle(self, handler_input, exception):
-        # type: (HandlerInput, Exception) -> Response
-        logger.error(exception, exc_info=True)
-        _ = handler_input.attributes_manager.request_attributes["_"]
-        speak_output = _(data.ERROR)
-
-        return (
-            handler_input.response_builder
-            .speak(speak_output)
-            .ask(speak_output)
-            .response
-        )
-
-
-class LocalizationInterceptor(AbstractRequestInterceptor):
-    """
-    Add function to request attributes, that can load locale specific data
-    """
-
-    def process(self, handler_input):
-        locale = handler_input.request_envelope.request.locale
-        i18n = gettext.translation(
-            'data', localedir='locales', languages=[locale], fallback=True)
-        handler_input.attributes_manager.request_attributes["_"] = i18n.gettext
-
-# The SkillBuilder object acts as the entry point for your skill, routing all request and response
-# payloads to the handlers above. Make sure any new handlers or interceptors you've
-# defined are included below. The order matters - they're processed top to bottom.
-
-
+# Set up the SkillBuilder
 sb = SkillBuilder()
-
 sb.add_request_handler(LaunchRequestHandler())
 sb.add_request_handler(HelloWorldIntentHandler())
 sb.add_request_handler(HelpIntentHandler())
 sb.add_request_handler(CancelOrStopIntentHandler())
 sb.add_request_handler(FallbackIntentHandler())
 sb.add_request_handler(SessionEndedRequestHandler())
-
-# Register the new handlers vor voice to python server
-sb.add_request_handler(CommandIntentHandler())
-
-# make sure IntentReflectorHandler is last so it doesn't override your custom intent handlers
-sb.add_request_handler(IntentReflectorHandler())
-
+sb.add_request_handler(CommandIntentHandler())  # Register the new CommandIntent handler
+sb.add_request_handler(IntentReflectorHandler())  # Keep as the last handler
 sb.add_global_request_interceptor(LocalizationInterceptor())
-
 sb.add_exception_handler(CatchAllExceptionHandler())
 
 handler = sb.lambda_handler()
